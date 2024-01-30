@@ -31,7 +31,10 @@ Remember that [Emil Hvitfeldt](https://www.emilhvitfeldt.com/) (of Posit) has pu
 - Run the `load-packages` code chunk or **knit** <img src="../README-img/knit-icon.png" alt="knit" width = "20"/> icon your Rmd document to verify that no errors occur.
 
 ```{r load-packages}
-
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+library(plotly)
 ```
 
 Since we will be looking at many relationships graphically, it will be nice to not have to code each of these individually.
@@ -53,7 +56,7 @@ For example, [`GGally::ggpairs`](http://ggobi.github.io/ggally/articles/ggpairs.
 ## Load the data and
 
 I found a way to upload data from OpenIntro without needing to download it first!
-Recall that data we are working with is from the OpenIntro site (its "about" page: https://www.openintro.org/data/index.php?data=hfi).
+Recall that data we are working with is from the OpenIntro site (its "about" page: https://www.openintro.org/data/index.php?data=hfi.)
 We can access the raw data from their tab-delimited text file link: https://www.openintro.org/data/tab-delimited/hfi.txt.
 
 Create a new R code chunk below that is titled `load-data` and reads in the above linked TSV (tab-separated values) file by doing the following:
@@ -62,12 +65,35 @@ Create a new R code chunk below that is titled `load-data` and reads in the abov
 - Assign this data set into a data frame named `hfi` (short for "Human Freedom Index").
 - Filter the data `hfi` data frame for year 2016 and assigns the result to an R data object named `hfi_2016`. You will use `hfi_2016` for the remainder of this activity.
 
+```{r}
+hfi <- read_tsv("https://www.openintro.org/data/tab-delimited/hfi.txt")
+hfi_2016 <- hfi %>% filter(year == 2016)
+```
+
+
 We will continue using personal freedom scores, `pf_score`, as the response variable and build on our model that had `pf_expression_control` as the explanatory variable. 
 
 Create a new R code chunk below, with an appropriate title, that does the following:
 
-- Review the about page of the data set and select at least one additional numeric variables (hint: look for `<dbl>` or `<int>` designations) to describe its distribution. Remember to write your description.
+- Review the about page of the data set and select at least one additional numeric variable (hint: look for `<dbl>` or `<int>` designations) to describe its distribution. Remember to write your description.
 - You may also wish to do this for `pf_score` and `pf_expression_control` again to help you remember what you noticed last week.
+
+- `pf_ss`: Security and safety (slightly left skewed, centered around 8)
+- `ef_score`: Economic freedom score (roughly normal, centered around 7)
+- `pf_score`: Personal freedom score (roughly normal, centered around 6)
+- `pf_expression_control`: Political pressures and controls on media content (roughly normal, centered around 5)
+
+Only need a linear fit
+If you want to test, you need to make sure the errors (residuals) follow a normal distribution. NOT the variables, ONLY the residuals
+
+```{r select-new-vars}
+hfi_2016 %>% ggplot(aes(x = pf_ss)) +
+  geom_histogram(binwidth = 0.25)
+
+hfi_2016 %>% ggplot(aes(x = ef_score)) +
+  geom_histogram(binwidth = 0.25)
+```
+
 
 ## Pairwise relationships
 
@@ -99,9 +125,9 @@ Now, we will obtain graphical and numerical summaries to describe the pairwise r
 - Replace `explanatory` in the `select` line with the variable you identified above
 - Run your code chunk or knit your document.
   
-```{verbatim pairs-plot}
+```{r pairs-plot}
 hfi_2016 %>% 
-  select(pf_score, pf_expression_control, explanatory) %>% 
+  select(pf_score, pf_expression_control, pf_ss, ef_score) %>% 
   ggpairs()
 ```
 
@@ -116,19 +142,31 @@ After running the `pairs-plot` code, answer the following questions:
 1. For each pair of variables, how would you describe the relationship graphically?
   Do any of the relationships look linear?
   Are there any interesting/odd features (outliers, non-linear patterns, etc.)?
+  
+  - `pf_score` vs. `pf_expression_control`: strong positive linear relationship
+  - `pf_score` vs. `pf_ss`: strong positive linear relationship (maybe a few weird ones)
+  - `pf_score` vs. `ef_score`: moderate positive linear relationship (one outlier?)
+  - `pf_expression_control` vs. `pf_ss`: iffy positive linear relationship (more like a block or random scatter)
+  - `pf_expression_control` vs. `ef_score`: moderate positive linear relationship (one outlier?)
+  - `pf_ss` vs. `ef_score`: moderate positive linear relationship (one outlier?)
 
 2. For each pair of variables, how would you describe the relationship numerically?
+
+- Look at the correlations!
+- No value is less than 0.5. Biggest is 0.845
 
 3. Are your two explanatory variables collinear (correlated)?
   Essentially, this means that adding more than one of these variables to the model would not add much value to the model.
   We will talk more on this issue in Activity 4 (other considerations in regression models).
+  
+  Yes, all of my predictor variables are correlated with each other. This may mean we have an interaction and/or variables that will may be useful in the analysis.
 
 ## The multiple linear regression model
 
 You will now fit the following model:
 
 $$
-y = \beta_0 + \beta_1 \times x_1 + \beta_2 \times x_2 + \varepsilon
+y = \beta_0 + \beta_1 \times x_1 + \beta_2 \times x_2 + \beta_3 \times x_3 + \varepsilon
 $$
 
 
@@ -136,7 +174,7 @@ $$
 - Replace `explanatory`, similarly to what you did in your `pairs-plot` R code chunk.
 - Run your code chunk or knit your document.
   
-```{verbatim mlr-model}
+```{r mlr-model}
 #fit the mlr model
 lm_spec <- linear_reg() %>%
   set_mode("regression") %>%
@@ -145,7 +183,7 @@ lm_spec <- linear_reg() %>%
 lm_spec
 
 mlr_mod <- lm_spec %>% 
-fit(pf_score ~ pf_expression_control + explanatory, data = hfi_2016)
+fit(pf_score ~ pf_expression_control + pf_ss + ef_score, data = hfi_2016)
 
 # model output
 tidy(mlr_mod)
@@ -162,9 +200,18 @@ $$
   
   where $b_0$ and $b_1$ were your model parameter estimates.
   Note that your model here will be different (and have more terms).
+  
+$$
+\hat{y} = 0.708 + 0.376 x_1 + 0.383 x_2 + 0.192 x_3
+$$
 
-5. For each of the estimated parameters (the *y*-intercept and the slopes associated with each explanatory variable - three total), interpret these values in the context of this problem.
+5. For each of the estimated parameters (the *y*-intercept and the slopes associated with each explanatory variable - four total), interpret these values in the context of this problem.
   That is, what do they mean for a "non-data" person?
+  
+  1. With a political pressure score, a safety and security score, and an economic freedom score of 0, we would predict the personal freedom score of a country to be 0.708. 
+  2. With all other variables held constant, we would predict a country's personal freedoms score to rise by 0.376 for every increase of one point on the political pressure score.
+  3. With all other variables held constant, we would predict a country's personal freedoms score to rise by 0.383 for every increase of one point on the safety and security score.
+  4. With all other variables held constant, we would predict a country's personal freedoms score to rise by 0.192 for every increase of one point on the economic freedom score.
 
 ## Challenge: 3-D plots
 
@@ -174,11 +221,20 @@ Ideally, this would be something that plays nicely with (looks similar to) `{ggp
 
 - Create a new R code chunk, with a descriptive name, and add your code to create this plot.
 
+```{r 3d-plot}
+plot_ly(data = hfi_2016, x = ~pf_expression_control, y = ~pf_score, z = ~pf_ss, color = ~ef_score, type = "scatter3d")
+
+```
+
+
 After doing this, respond to the following prompt:
 
 6. Compare your 3-D scatterplot and the `GGally::ggpairs` output.
   Comment on the strengths and weaknesses of these two visualizations.
   Do both display on GitHub when you push your work there?
+  
+  - Hard to view the 3D plot and really get a good sense of what the data looks like. Doesn't help that I choose four variables.
+  - The scatterplot matrix is nice but I have to keep looking at the axes to remember what variables I'm looking at.
 
 # Day 2
 
