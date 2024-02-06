@@ -249,10 +249,10 @@ This is similar to what we have already been doing - fitting our desired model.
 For today's activity, we will fit something like:
 
 $$
-y = \beta_0 + \beta_1 \times \text{qualitative\\_variable} + \beta_2 \times \text{quantitative\\_variable} + \varepsilon
+y = \beta_0 + \beta_1 \times \text{qualitative_variable} + \beta_2 \times \text{quantitative_variable} + \varepsilon
 $$
 
-where $y$, $\text{qualitative\\_variable}$, and $\text{quantitative\\_variable}$ are from `hfi_2016`.
+where $y$, $\text{qualitative_variable}$, and $\text{quantitative_variable}$ are from `hfi_2016`.
 Note that the two explanatory variables can be entered in whatever order.
 
 To help with interpretability, we will focus on qualitative predictor variables with only two levels.
@@ -263,9 +263,9 @@ Fortunately, we can create our own.
 - In the code chunk below titled `binary-pred`, replace "verbatim" with "r" just before the code chunk title.
 - Run your code chunk or knit your document.
   
-```{verbatim binary-pred}
+```{r binary-pred}
 hfi_2016 <- hfi_2016 %>%
-  mutate(west_atlantic = if_else(
+  mutate(east_atlantic = if_else(
     region %in% c("North America", "Latin America & the Caribbean"),
     "No",
     "Yes"
@@ -274,14 +274,16 @@ hfi_2016 <- hfi_2016 %>%
 
 7. What is happening in the above code? What new variable did we create? How do you know it is new? What values does it take when?
 
+We made a new variable called `east_atlantic` that is set to "Yes" if the country is east of the Atlantic or and "No" if it is not.
+
 
 - In the code chunk below titled `qual-mlr`, replace "verbatim" with "r" just before the code chunk title.
 - Run your code chunk or knit your document.
 
-```{verbatim qual-mlr}
+```{r qual-mlr}
 # review any visual patterns
 hfi_2016 %>% 
-  select(pf_score, west_atlantic, pf_expression_control) %>% 
+  select(pf_score, east_atlantic, pf_expression_control) %>% 
   ggpairs()
 
 #fit the mlr model
@@ -290,7 +292,7 @@ lm_spec <- linear_reg() %>%
   set_engine("lm")
 
 qual_mod <- lm_spec %>% 
-  fit(pf_score ~ west_atlantic + pf_expression_control, data = hfi_2016)
+  fit(pf_score ~ east_atlantic + pf_expression_control, data = hfi_2016)
 
 # model output
 tidy(qual_mod)
@@ -308,11 +310,17 @@ Answer the following questions:
 
 8. What is the label that R assigned to this explanatory variable `term`?
 
+`east_atlanticYes`
+
 
 9. What information is represented here?
 
+The countries that are in the East Atlantic
+
 
 10. What information is missing here?
+
+The countries that are in the West Atlantic
 
 
 Your are essentially fitting two models (or $k$ models, where $k$ is the number of levels in your qualitative variable).
@@ -327,9 +335,22 @@ Use `?relevel` to learn more.
 
 11. Write the estimated equation for your MLR model with a qualitative explanatory variable.
 
+$$
+\hat{y} = 4.38 - 0.102 \times \text{east_atlanticYes} + 0.540 \times \text{pf_expression_control}
+$$
 
 12. Now, for each level of your qualitative variable, write the simplified equation of the estimated line for that level. 
   Note that if your qualitative variable has two levels, you should have two simplified equations.
+
+- East Atlantic = Yes
+$$
+\hat{y} = 4.278 + 0.540 \times \text{pf_expression_control}
+$$
+- East Atlantic = No
+
+$$
+\hat{y} = 4.38 + 0.540 \times \text{pf_expression_control}
+$$
 
 
 
@@ -340,14 +361,34 @@ The estimate for the quantitative variable reflects how much change in the respo
 13. Interpret the parameter estimate for the reference level of your categorical variable in the context of your problem.
 Page 83 of the text can help here (or have me come chat with you).
 
+If a country is in the East Atlantic region, we would predict their personal freedom score to decrease by 0.102 while holding the `pf_expression_control` variable constant.
 
 14. Interpret the parameter estimate for your quantitative variable in the context of your problem.
 
+Keeping a country's location fixed, we would expect that country's personal freedom score to increase by 0.540 for every increase of one point of `pf_expression_control`.
 
 ## Challenge: Multiple levels
 
 Below, create a new R code chunk (with a descriptive name) that fits a new model with the same response (`pf_score`) and quantitative explanatory variable (`pf_expression_control`), but now use a qualitative variable with more than two levels (say, `region`) and obtain the `tidy` model output.
 How does R appear to handle categorical variables with more than two levels?
+
+```{r many-lvls}
+# review any visual patterns
+hfi_2016 %>% 
+  select(pf_score, region, pf_expression_control) %>% 
+  ggpairs()
+
+#fit the mlr model
+lm_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+qual_mod <- lm_spec %>% 
+  fit(pf_score ~ region + pf_expression_control, data = hfi_2016)
+
+# model output
+tidy(qual_mod)
+```
 
 
 
@@ -370,24 +411,24 @@ However, the additive assumption is about the coefficients (the $\beta$s) and no
 Recall from Day 2 that you explored the model:
 
 $$
-y = \beta_0 + \beta_1 \times \text{qualitative\\_variable} + \beta_2 \times \text{quantitative\\_variable} + \varepsilon
+y = \beta_0 + \beta_1 \times \text{qualitative_variable} + \beta_2 \times \text{quantitative_variable} + \varepsilon
 $$
 
 Today we will explore a similar model, except that also includes the interaction between your qualitative and quantitative explanatory variables.
 That is,
 
 $$
-y = \beta_0 + \beta_1 \times \text{qualitative\\_variable} + \beta_2 \times \text{quantitative\\_variable} + \beta_3 \times ( \text{qualitative\\_variable} \times \text{quantitative\\_variable}) + \varepsilon
+y = \beta_0 + \beta_1 \times \text{qualitative_variable} + \beta_2 \times \text{quantitative_variable} + \beta_3 \times ( \text{qualitative_variable} \times \text{quantitative_variable}) + \varepsilon
 $$
 
-- Run all previous code up to this point - you will need your prior dataset of just 2016 observations with the `west_atlantic` variable.
+- Run all previous code up to this point - you will need your prior dataset of just 2016 observations with the `east_atlantic` variable.
 - In the code chunk below titled `int-mlr`, replace "verbatim" with "r" just before the code chunk title.
 - Run your code chunk or knit your document.
 
-```{verbatim int-mlr}
+```{r int-mlr}
 # review any visual patterns
 hfi_2016 %>% 
-  select(pf_score, west_atlantic, pf_expression_control) %>% 
+  select(pf_score, east_atlantic, pf_expression_control) %>% 
   ggpairs()
 
 #fit the mlr model
@@ -396,7 +437,7 @@ lm_spec <- linear_reg() %>%
   set_engine("lm")
 
 int_mod <- lm_spec %>% 
-  fit(pf_score ~ west_atlantic * pf_expression_control, data = hfi_2016)
+  fit(pf_score ~ east_atlantic * pf_expression_control, data = hfi_2016)
 
 # model output
 tidy(int_mod)
