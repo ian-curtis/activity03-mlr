@@ -66,7 +66,7 @@ Create a new R code chunk below that is titled `load-data` and reads in the abov
 - Filter the data `hfi` data frame for year 2016 and assigns the result to an R data object named `hfi_2016`. You will use `hfi_2016` for the remainder of this activity.
 
 ```{r}
-hfi <- read_tsv("https://www.openintro.org/data/tab-delimited/hfi.txt")
+hfi <- read_tsv("hfi.tsv")
 hfi_2016 <- hfi %>% filter(year == 2016)
 ```
 
@@ -390,7 +390,7 @@ qual_mod <- lm_spec %>%
 tidy(qual_mod)
 ```
 
-
+RStudio takes the levels of the categorical variable and makes each level (minus 1) into its own dummy variable.
 
 # Day 3
 
@@ -451,11 +451,18 @@ After doing this, answer the following question:
 15. When viewing the `tidy` output, notice that the interaction term is listed as `qualitativelevel:quantitative`.
   Referring back to Day 2 with how R displays qualitative variables, interpret what this syntax means.
 
+This means we are multiplying two things together. In this case, we are multiplying the value for `pf_expression_control` by the dummy variable value of whether a country is east atlantic or not.
 
 16. Using page 100 of *ISLR* as a reference, if needed, and your work from Day 2, write the simplified equation of the line corresponding to each level of your qualitative explanatory variable.
 
 
+If `east_atlantic` is "Yes", we would see $\hat{\text{pf_score}} = 5.721 - 1.598 + 0.296*\text{pf_expression_control} + 0.275*\text{pf_expression_control}$ which equals $\hat{\text{pf_score}} = 4.123 + 0.571*\text{pf_expression_control}$
+
+IF `east_atlantic is "No", we would see $\hat{\text{pf_score}} = 5.721 + 0.296*\text{pf_expression_control}$
+
 17. For two observations with similar values of the quantitative , which level tends to have higher values of the response variable?
+
+Having east atlantic equal to "No" would lead to higher values of the response, on average.
 
 
 18. Like you did in Day 1, assess the fit of this model (no need to do any formal hypothesis testing - we will explore this next).
@@ -473,10 +480,10 @@ One way to check this is to build our null model (no predictors) and then compar
 
 - In the code chunk below titled `mod-comp`, replace "verbatim" with "r" just before the code chunk title.
   
-```{verbatim mod-comp}
+```{r mod-comp}
 # null model
 null_mod <- lm_spec %>% 
-fit(response ~ 1, data = data)
+fit(pf_score ~ 1, data = hfi_2016)
 
 anova(
   extract_fit_engine(int_mod),
@@ -487,7 +494,7 @@ anova(
 19. Using your background knowledge of $F$ tests, what is the $F$ test statistic and $p$-value for this test?
   Based on an $\alpha = 0.05$ significant level, what should you conclude?
 
-
+The $F$ test statistic is 144.6 and the associated p-value is essentially 0. Based on this, we would conclude that we have evidence to suggest that at least one of the slopes is not 0 (that is, that there is at least one predictor that is useful to the model).
 
 ## Partial slope test - do all predictors help explain $y$?
 
@@ -503,6 +510,10 @@ Because the interaction term is a combination of the other two variables, we sho
 20. What is the $t$ test statistic and $p$-value associated with this test?
   Based on an $\alpha = 0.05$ significant level, what should you conclude?
 
+$t$ = 0.0838
+$p$-value = 0.0001
+
+We have evidence to suggest that the slope for the interaction term is not zero indicating that the model with the interaction and the variables that make up the interaction provides some information.
 
 
 If your interaction term was not significant, you could consider removing it.
@@ -520,4 +531,45 @@ You also should not remove a main variable (non-interaction variable) if the int
 
 You have already done this step in past activities by exploring your residuals (Activity 2).
 Using your final model from Task 3, assess how well your model fits the data.
+
+```{r}
+glance(int_mod)
+```
+
+$R^2$ = 0.733 which is not too much better than the model with just the quantitative variable.
+
+
+```{r train-test}
+set.seed(523)
+
+hfi_split <- initial_split(hfi_2016, prop = .8)
+
+train <- training(hfi_split)
+test <- testing(hfi_split)
+```
+
+```{r train-fit-lm}
+mlr_train <- lm_spec %>% 
+  fit(pf_score ~ east_atlantic * pf_expression_control, data = train)
+
+tidy(slr_train)
+```
+```{r}
+train_aug <- augment(slr_train, new_data = test)
+
+ggplot(data = train_aug, aes(x = .pred, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  xlab("Fitted values") +
+  ylab("Residuals")
+```
+
+ 
+```{r residual-histogram}
+
+
+ggplot(data = train_aug, aes(x = .resid)) +
+  geom_histogram(binwidth = 0.25) +
+  xlab("Residuals")
+```
 
